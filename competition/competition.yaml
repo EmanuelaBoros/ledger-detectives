@@ -1,0 +1,78 @@
+version: 2
+title: "Les Détectives du Grand Livre : lire le profit dans les textes d'affaires d'autrefois"
+description: "Trois phases sur des passages d'assemblées générales et d'articles de presse français (1907-1950) : direction causale, position sur le profit, et spans de preuve des acteurs."
+image: logo.png
+docker_image: codalab/codalab-legacy:py37
+enable_detailed_results: false
+registration_auto_approve: true
+
+terms: pages/terms.md
+pages:
+  - title: Overview
+    file: pages/overview.md
+  - title: Data
+    file: pages/data.md
+  - title: Evaluation
+    file: pages/evaluation.md
+  - title: Rules
+    file: pages/rules.md
+
+tasks:
+  - index: 0
+    name: "Phase 1 - Cause ou causé par"
+    description: Prédire REL_TYPE (CAUSES / IS_CAUSED_BY) pour chaque passage.
+    scoring_program: tasks/task1_direction/scoring_program
+    reference_data: tasks/task1_direction/reference_data
+    input_data: tasks/task1_direction/input_data
+  - index: 1
+    name: "Phase 2 - Position sur le profit"
+    description: Prédire STANCE_PROFIT (LEGITIMATE / NA) pour chaque passage.
+    scoring_program: tasks/task2_stance/scoring_program
+    reference_data: tasks/task2_stance/reference_data
+    input_data: tasks/task2_stance/input_data
+  - index: 2
+    name: "Phase 3 - Spans de preuve des acteurs"
+    description: Retrouver les spans de caractères annotés comme preuve des acteurs.
+    scoring_program: tasks/task3_actors/scoring_program
+    reference_data: tasks/task3_actors/reference_data
+    input_data: tasks/task3_actors/input_data
+
+phases:
+  - index: 0
+    name: "Phase 1 : cause ou causé par"
+    description: Déposer predictions.csv (row_id,rel_type) pour test_inputs.csv.
+    start: 2026-12-01
+    end: 2026-12-10
+    max_submissions_per_day: 5
+    max_submissions: 30
+    tasks: [0]
+  - index: 1
+    name: "Phase 2 : position sur le profit"
+    description: Déposer predictions.csv (row_id,stance) pour test_inputs.csv.
+    start: 2026-12-11
+    end: 2026-12-20
+    max_submissions_per_day: 5
+    max_submissions: 30
+    tasks: [1]
+  - index: 2
+    name: "Phase 3 : spans de preuve des acteurs"
+    description: Déposer predictions.csv (row_id,start,end) pour test_texts.csv.
+    start: 2026-12-21
+    end: 2026-12-31
+    max_submissions_per_day: 5
+    max_submissions: 30
+    tasks: [2]
+
+leaderboards:
+  - index: 0
+    title: Results
+    key: main
+    columns:
+      - {title: "P1 macro-F1", key: rel_macro_f1, index: 0, sorting: desc}
+      - {title: "P1 exactitude", key: rel_accuracy, index: 1, sorting: desc}
+      - {title: "P2 macro-F1", key: stance_macro_f1, index: 2, sorting: desc}
+      - {title: "P2 exactitude", key: stance_accuracy, index: 3, sorting: desc}
+      - {title: "P3 F1 spans", key: span_f1, index: 4, sorting: desc}
+      - {title: "P3 précision", key: span_precision, index: 5, sorting: desc}
+      - {title: "P3 rappel", key: span_recall, index: 6, sorting: desc}
+      - {title: "P3 F1 strict", key: span_exact_f1, index: 7, sorting: desc}

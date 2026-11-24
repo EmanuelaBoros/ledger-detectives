@@ -1,0 +1,279 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{fancyvrb}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\file}[1]{\texttt{\detokenize{#1}}}
+\fvset{fontsize=\footnotesize,frame=single,framesep=2mm}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\title{\textbf{Les Détectives du Grand Livre}\\[2pt]\large Guide du participant}
+\author{}
+\date{Décembre 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+%--------------------------------------------------------------------
+\section{Bienvenue}
+
+Quand une entreprise française se vante de ses bénéfices en 1934, s'agit-il d'un profit légitime ou de quelque chose de plus suspect ? Dans cette compétition, vous lisez des extraits d'assemblées générales d'actionnaires et d'articles de presse français (1907--1950) et vous entraînez des modèles à en extraire trois types d'informations :
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}clY@{}}
+\toprule
+Phase & Dates (décembre 2026) & Tâche \\
+\midrule
+1 & du 1\textsuperscript{er} au 10 & \textbf{Cause ou causé par} : un événement en cause-t-il un autre, ou en est-il la conséquence ? \\
+2 & du 11 au 20 & \textbf{Position sur le profit} : le texte juge-t-il un profit légitime, ou ne dit-il rien à ce sujet ? \\
+3 & du 21 au 31 & \textbf{Spans de preuve des acteurs} : retrouver les passages qui identifient les acteurs de chaque événement. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Chaque phase a ses propres données, son format de soumission et sa métrique. Les phases se succèdent : on ne soumet qu'à la phase ouverte.
+
+\paragraph{C'est un petit pilote.} Les jeux de test comptent seulement 19, 23 et 20 passages. Les écarts entre équipes seront bruités : le classement est avant tout un exercice d'apprentissage, et un bon rapport sur votre démarche vaut autant qu'un bon score.
+
+%--------------------------------------------------------------------
+\section{Règlement}
+
+\begin{itemize}
+  \item N'utilisez que les données fournies et des modèles pré-entraînés publics, que vous citez.
+  \item N'essayez pas de retrouver les étiquettes cachées du test.
+  \item Équipes : individuel ou équipes de trois personnes au plus. Chacun rejoint une seule équipe, et une équipe soumet depuis un seul compte.
+  \item Limite : 5 soumissions par jour et par phase.
+  \item Les données sont fournies pour un usage pédagogique dans le cadre du cours : ne les redistribuez pas.
+\end{itemize}
+
+%--------------------------------------------------------------------
+\section{Les données}
+
+Les textes sont des extraits de documents historiques français (transcriptions corrigées après reconnaissance optique de caractères, donc susceptibles de contenir des erreurs). Ils ont été annotés par des chercheurs selon des consignes d'annotation communes ; la section~\ref{sec:etiquettes} en résume les points utiles.
+
+Tous les fichiers sont des CSV en UTF-8 avec une ligne d'en-tête.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.6cm}Y@{}}
+\toprule
+Fichiers & Contenu \\
+\midrule
+\file{public_data/phase1_direction/} \file{train.csv}, \file{dev.csv}, \file{test_inputs.csv} & 59, 14 et 19 passages. Colonnes : \code{row_id}, \code{domain}, \code{pre_context}, \code{span_text}, \code{post_context}, \code{e1_event}, \code{e2_event}, et \code{rel_type} (fichiers étiquetés). \\
+\file{public_data/phase2_stance/} \file{train.csv}, \file{dev.csv}, \file{test_inputs.csv} & 77, 29 et 23 passages. Mêmes colonnes de texte (sans les événements), étiquette \code{stance}. \\
+\file{public_data/phase3_actors/} \texttt{\{train,dev\}\_texts.csv}, \texttt{\{train,dev\}\_spans.csv}, \file{test_texts.csv} & 74, 28 et 20 textes ; 134 et 43 spans de référence pour \code{train} et \code{dev}. \\
+\file{starting_kit/} & \file{baselines.py} et un \file{sample_submission_*.csv} par phase. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Colonnes de texte.} \code{span_text} est le passage annoté ; \code{pre_context} et \code{post_context} sont le texte qui précède et qui suit (vide s'il n'y en a pas). \code{domain} vaut \code{GA} (assemblée générale) ou \code{PRESSE}.
+
+\paragraph{Attention à \code{NA}.} \code{NA} est une vraie étiquette, pas une valeur manquante. Avec pandas, lisez les fichiers avec \code{keep_default_na=False}, sinon toutes vos étiquettes \code{NA} deviendront des valeurs vides.
+
+%--------------------------------------------------------------------
+\section{Comprendre les étiquettes}
+\label{sec:etiquettes}
+
+\subsection{Phase 1 : \texorpdfstring{\texttt{CAUSES}}{CAUSES} ou \texorpdfstring{\texttt{IS\_CAUSED\_BY}}{IS\_CAUSED\_BY}}
+
+Chaque ligne contient une relation de cause à effet entre deux événements, \code{e1_event} et \code{e2_event}, \emph{dans l'ordre où le texte les mentionne}. L'étiquette indique le sens :
+\begin{itemize}
+  \item \code{CAUSES} : l'événement~1 produit l'événement~2 ;
+  \item \code{IS_CAUSED_BY} : l'événement~2 produit l'événement~1.
+\end{itemize}
+
+Exemple fictif tiré des consignes d'annotation :
+
+\begin{quote}
+\og Les bénéfices ont diminué en juin parce que l'impôt avait augmenté en mars. \fg
+\end{quote}
+La phrase énonce l'effet en premier : \code{e1_event} = \emph{Les bénéfices ont diminué en juin}, \code{e2_event} = \emph{l'impôt avait augmenté en mars}, étiquette \code{IS_CAUSED_BY}. Les mots qui indiquent le sens (\og parce que \fg, \og en raison de \fg, \og est dû à \fg, \og a réduit \fg\ldots) sont vos meilleurs indices.
+
+\subsection{Phase 2 : \texorpdfstring{\texttt{LEGITIMATE}}{LEGITIMATE} ou \texorpdfstring{\texttt{NA}}{NA}}
+
+La position sur le profit enregistre le jugement que le texte porte sur la légitimité d'un profit précis : \code{LEGITIMATE} si le texte le juge justifié ou acceptable, \code{NA} s'il ne donne aucun jugement identifiable. Dans le schéma d'annotation complet existe aussi \code{ILLEGITIMATE} (profit jugé injustifié), mais elle n'a qu'un seul exemple dans ce pilote et a été écartée.
+
+\subsection{Phase 3 : spans de preuve des acteurs}
+
+Les annotateurs identifient les participants de chaque événement et copient les mots du texte qui les identifient. Exemple fictif des consignes :
+
+\begin{quote}
+\og La Banque de France a abaissé son taux, ce qui a permis aux banques de Lyon d'accorder davantage de prêts. \fg
+\end{quote}
+Preuves : \emph{La Banque de France} (acteur de l'événement~1) et \emph{aux banques de Lyon} (acteur de l'événement~2). C'est ce type de segments, repérés par leurs positions de caractères, qu'il faut retrouver.
+
+%--------------------------------------------------------------------
+\section{Exemples tirés des données d'entraînement}
+
+\subsection{Phase 1}
+
+\begin{quote}\small
+\textbf{R0044}. \og Le règlement des créances internationales a dans le monde entier continué à présenter de sérieuses difficultés en raison des interventions des gouvernements modifiant après coup les contrats ou en réglant à leur gré l'exécution. \fg\\
+\code{e1_event} = \code{DIFFICULTES_DE_REGLEMENT_DES_CREANCES_INTERNATIONALES}\\
+\code{e2_event} = \code{INTERVENTIONS_DES_GOUVERNEMENTS_MODIFIANT_LES_CONTRATS}\\
+\textbf{\code{rel_type} = \code{IS_CAUSED_BY}} : l'effet est mentionné en premier.
+\end{quote}
+
+\begin{quote}\small
+\textbf{R0049}. \og Mais les subventions et les prêts consentis à des entreprises de toute sorte ont déjà lourdement grevé le budget et accru la dette publique, sans que l'on puisse encore apercevoir le résultat et le terme de l'expérience. \fg\\
+\code{e1_event} = \code{SUBVENTIONS_ET_PRETS_DE_L_ETAT_AUX_ENTREPRISES}\\
+\code{e2_event} = \code{ALOURDISSEMENT_DU_BUDGET}\\
+\textbf{\code{rel_type} = \code{CAUSES}} : la cause est mentionnée en premier.
+\end{quote}
+
+\subsection{Phase 2}
+
+\begin{quote}\small
+\textbf{R0088}. \og Vos agences espagnoles souffrent de la réduction des transactions, notamment de celles avec l'étranger, et de la lourde charge que crée la législation actuelle du travail. \fg\\
+\textbf{\code{stance} = \code{LEGITIMATE}}
+\end{quote}
+
+\begin{quote}\small
+\textbf{R0053}. \og La Grande-Bretagne, restée plus fidèle à ses traditions, fait plus largement confiance à l'initiative et à l'énergie individuelles ; elle a effectué en 1933 un redressement vigoureux. \fg\\
+\textbf{\code{stance} = \code{NA}} : aucun jugement identifiable sur la légitimité du profit.
+\end{quote}
+
+\subsection{Phase 3}
+
+Texte de la ligne \code{R0076} :
+
+\begin{quote}\small
+\og Au Maroc, les contingents d'importation des produits agricoles indigènes dans la Métropole n'ont permis d'obtenir des prix suffisants que pour une partie des récoltes. \fg
+\end{quote}
+
+Fichier \file{train_spans.csv} pour cette ligne :
+
+\begin{Verbatim}
+row_id,start,end,span
+R0076,10,90,les contingents d'importation des produits agricoles indigènes dans la Métropole
+R0076,40,72,des produits agricoles indigènes
+\end{Verbatim}
+
+Les positions sont des décalages de caractères dans le champ \code{text} : le premier caractère a la position~0, et \code{end} est exclu, de sorte que \code{text[start:end]} redonne le span. Les deux spans peuvent se chevaucher.
+
+\paragraph{À savoir pour la phase 3.} Les spans de référence sont des \emph{preuves citées}, pas une annotation exhaustive d'entités nommées : d'autres acteurs peuvent apparaître dans le texte sans être marqués. Ce sont des segments d'environ 40 caractères en médiane, parfois des groupes nominaux, parfois des propositions plus longues. La catégorie d'un acteur n'est pas évaluée.
+
+%--------------------------------------------------------------------
+\section{Soumettre vos prédictions}
+
+\subsection{Formats}
+
+Chaque soumission est une archive \file{.zip} contenant un fichier \file{predictions.csv} à la racine. Un fichier invalide (étiquette inconnue, doublon, ligne manquante, position incorrecte) fait échouer la soumission, avec un message d'erreur en français.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}clY@{}}
+\toprule
+Phase & Colonnes de \file{predictions.csv} & Règles \\
+\midrule
+1 & \code{row_id,rel_type} & une ligne par \code{row_id} de \file{test_inputs.csv} ; \code{CAUSES} ou \code{IS_CAUSED_BY} \\
+2 & \code{row_id,stance} & une ligne par \code{row_id} de \file{test_inputs.csv} ; \code{LEGITIMATE} ou \code{NA} \\
+3 & \code{row_id,start,end} & une ligne par span prédit ; positions dans le \code{text} de cette ligne ; les lignes sans span peuvent être omises \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Chaque phase a un exemple de format dans \file{starting_kit/sample_submission_*.csv}.
+
+\subsection{Exemple de code (phase 2)}
+
+\begin{Verbatim}
+import pandas as pd
+
+test = pd.read_csv("public_data/phase2_stance/test_inputs.csv",
+                   keep_default_na=False)
+test["stance"] = "NA"          # remplacez par les prédictions de votre modèle
+test[["row_id", "stance"]].to_csv("predictions.csv", index=False)
+\end{Verbatim}
+
+Puis, dans un terminal :
+
+\begin{Verbatim}
+zip predictions.zip predictions.csv
+\end{Verbatim}
+
+\subsection{Sur Codabench}
+\begin{enumerate}
+  \item Créez un compte Codabench et inscrivez-vous à la compétition (ou à votre équipe, si vous en formez une).
+  \item Allez dans l'onglet \emph{My Submissions} de la phase ouverte.
+  \item Déposez \file{predictions.zip} et attendez la fin du calcul ; votre score apparaît dans le classement.
+  \item Vous avez 5 soumissions par jour et par phase : testez d'abord votre format avec l'exemple du kit de démarrage.
+\end{enumerate}
+
+%--------------------------------------------------------------------
+\section{Évaluation}
+
+\paragraph{Phases 1 et 2 : macro-F1.} Pour chaque classe présente dans les étiquettes cachées, on calcule le score F1 (moyenne harmonique de la précision et du rappel de cette classe), puis on fait la moyenne simple des classes. Une classe rare compte donc autant qu'une classe fréquente. L'exactitude (part de prédictions correctes) est affichée à titre indicatif.
+
+\paragraph{Phase 3 : F1 sur spans.} Un span prédit \emph{correspond} à un span de référence de la même ligne si leur intersection sur union (IoU) vaut au moins $0{,}5$ :
+\[
+\mathrm{IoU}(A,B)=\frac{|A\cap B|}{|A\cup B|},
+\]
+où $A$ et $B$ sont les ensembles de caractères couverts. Chaque span ne peut correspondre qu'une seule fois. On calcule la précision (part de vos spans qui correspondent), le rappel (part des spans de référence retrouvés) et leur F1, qui sert au classement. Le classement affiche aussi un F1 \emph{strict}, qui exige des positions exactes.
+
+%--------------------------------------------------------------------
+\section{Systèmes de référence}
+
+Le fichier \file{starting_kit/baselines.py} fournit une base par phase :
+\begin{itemize}
+  \item phases 1 et 2 : TF-IDF et régression logistique, entraînés sur \code{train} et \code{dev} ;
+  \item phase 3 : une heuristique naïve qui prédit toute suite de mots commençant par une majuscule.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Phase & Base & Réponse triviale \\
+\midrule
+1 & macro-F1 $0{,}46$ & $0{,}46$ (toujours \code{CAUSES}) \\
+2 & macro-F1 $0{,}61$ & $0{,}39$ (toujours \code{NA}) \\
+3 & F1 $0{,}00$ & $0{,}00$ (aucun span) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+À la phase~1, la base ne fait pas mieux que de répondre toujours \code{CAUSES} : battre $0{,}46$ est votre premier objectif. À la phase~3, il n'y a presque rien à perdre : à vous de proposer mieux que l'heuristique.
+
+%--------------------------------------------------------------------
+\section{Pistes de travail}
+
+\begin{itemize}
+  \item \textbf{Utilisez le contexte.} \code{pre_context} et \code{post_context} aident à interpréter un passage (pronoms, renvois). Testez avec et sans.
+  \item \textbf{Phase 1 : les indices de direction} sont souvent des connecteurs (\og parce que \fg, \og en raison de \fg, \og a entraîné \fg). Pensez aussi à l'ordre et au contenu des événements \code{e1_event} et \code{e2_event}.
+  \item \textbf{Classes déséquilibrées.} Pondérez les classes, rééchantillonnez, ou choisissez un seuil de décision en fonction du macro-F1 plutôt que de l'exactitude.
+  \item \textbf{Modèles de langue.} Des modèles pré-entraînés pour le français (par exemple de type CamemBERT ou FlauBERT) ou un modèle de reconnaissance d'entités nommées public peuvent servir, si vous les citez. Attention à la petite taille des données : validez sur \code{dev} avant de soumettre.
+  \item \textbf{Phase 3.} Pensez à votre problème comme à de l'étiquetage de séquences (\og BIO \fg) sur le \code{text}, puis convertissez en positions de caractères. Le critère IoU $\geq 0{,}5$ tolère de petites erreurs de bornes.
+  \item \textbf{OCR.} Les textes contiennent des coquilles ; évitez les prétraitements trop agressifs.
+\end{itemize}
+
+%--------------------------------------------------------------------
+\section{Limites à garder en tête}
+
+\begin{itemize}
+  \item \textbf{Très peu de données} : quelques dizaines de passages par jeu d'entraînement. Un modèle qui paraît meilleur sur \code{dev} peut ne l'être que par chance.
+  \item \textbf{Déséquilibre} : à la phase~1, la grande majorité des lignes sont \code{CAUSES} (le test n'a que 3 \code{IS_CAUSED_BY}).
+  \item \textbf{Documents partagés} : une grande partie des passages (119 sur 159) provient d'une même assemblée générale de 1934. Les passages identiques sont gardés dans le même découpage, mais l'entraînement et le test partagent des documents ; les scores sont plus optimistes qu'ils ne le seraient sur des documents inédits.
+  \item \textbf{Étiquettes humaines} : certaines étiquettes sont discutables, même pour des spécialistes. Un désaccord entre votre modèle et la référence n'est pas forcément une erreur du modèle.
+  \item \textbf{Classe \code{ILLEGITIMATE}} : absente de ce pilote faute d'exemples.
+\end{itemize}
+
+\bigskip
+\noindent\textit{Bonne chasse aux indices !}
+
+\end{document}

@@ -221,3 +221,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- ledger-detectives: keep hidden labels and corpus data out of this public repo ---
+.DS_Store
+# derived and raw data (including the source workbook and normalised tables)
+data/v0.1/
+# test inputs and hidden test labels, and the public data files built from them
+competition/tasks/*/input_data/
+competition/tasks/*/reference_data/
+competition/public_data/
+competition/starting_kit/sample_submission_*.csv
+# local viewer (embeds all rows and labels)
+viewer/index.html
+# internal document (file paths, annotator details)
+docs/internal/
