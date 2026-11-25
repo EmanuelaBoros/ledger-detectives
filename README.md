@@ -15,7 +15,7 @@ The competition itself is in French.
 ```
 competition/   Codabench bundle (competition.yaml, pages, scoring programs, starting kit)
 data/          data processing: scripts that build the dataset and the bundle
-viewer/        generator for a local HTML browser of the data and annotations
+viewer/        HTML browser for the data and annotations (index.html loads your local CSV files)
 docs/          student guide (LaTeX / Overleaf)
 ```
 
@@ -23,7 +23,7 @@ docs/          student guide (LaTeX / Overleaf)
 
 The corpus data, the derived tables and the hidden test labels are **not** committed (see `.gitignore`):
 `data/v0.1/`, `competition/public_data/`, `competition/tasks/*/input_data/`, `competition/tasks/*/reference_data/`,
-and the generated `viewer/index.html`. Keeping them out stops participants from reading the test answers here.
+and the generated `viewer/viewer-local.html` (embeds all rows). Keeping them out stops participants from reading the test answers here.
 The code is complete: with the source workbook you can rebuild everything.
 
 ## Rebuilding
@@ -34,11 +34,15 @@ Needs Python 3.10+ with `openpyxl` and `Pillow` (logo only); the baselines also 
 # 1. place the source workbook at data/v0.1/raw/ANR.xlsx
 python3 -I data/scripts/build_dataset.py data/v0.1   # normalised tables + split
 python3 -I data/scripts/make_bundle.py               # competition files + dist/bundle.zip
-python3 -I viewer/make_viewer.py                     # optional: viewer/index.html
+python3 -I viewer/make_viewer.py                     # optional: viewer/viewer-local.html
 python3 -I data/scripts/make_logo.py                 # optional: competition/logo.png
 ```
 
 Then upload `dist/bundle.zip` in Codabench (Benchmarks > Management > Upload).
+
+## Viewer
+
+Open `viewer/index.html` in a browser and select `data/v0.1/annotations_v0.1.csv` and `data/v0.1/actors_v0.1.csv`; nothing is uploaded anywhere. `make_viewer.py` also writes `viewer/viewer-local.html` with the data embedded (gitignored).
 
 ## Scoring and baselines
 

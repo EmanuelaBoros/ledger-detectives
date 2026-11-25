@@ -231,7 +231,7 @@ competition/tasks/*/input_data/
 competition/tasks/*/reference_data/
 competition/public_data/
 competition/starting_kit/sample_submission_*.csv
-# local viewer (embeds all rows and labels)
-viewer/index.html
+# local viewer (embeds all rows and labels); viewer/index.html has no data and is tracked
+viewer/viewer-local.html
 # internal document (file paths, annotator details)
 docs/internal/

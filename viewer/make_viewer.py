@@ -1,4 +1,7 @@
-"""Build viewer/index.html: a self-contained browser for the normalised pilot dataset.
+"""Build the data viewer (two files, same app).
+
+viewer/index.html         no data inside; load data/v0.1/*.csv from disk (safe to commit)
+viewer/viewer-local.html  all rows embedded (contains corpus and test labels; gitignored)
 
 Usage (repo root): python3 -I viewer/make_viewer.py
 """
@@ -64,6 +67,12 @@ dl{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;margin:12px 0}dt{co
 @media(max-width:1000px){.wrap{grid-template-columns:1fr;height:auto}.panel{max-height:70vh}}
 </style></head><body>
 <header><h1>Les Détectives du Grand Livre — visionneuse des données <small id="sub"></small></h1></header>
+<div id="loader" style="display:none;padding:10px 20px;background:#fff6dc;border-bottom:1px solid var(--line)">
+ Chargez les fichiers locaux (ils ne quittent pas votre navigateur) :
+ <label>annotations_v0.1.csv <input type="file" id="fann" accept=".csv"></label>
+ <label>actors_v0.1.csv <input type="file" id="fact" accept=".csv"></label>
+ <button id="fgo">Afficher</button> <span id="fmsg" style="color:#a05a00"></span>
+</div>
 <div class="wrap">
  <div class="panel">
   <div class="filters">
@@ -81,14 +90,51 @@ dl{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;margin:12px 0}dt{co
  <div class="panel"><div class="detail" id="detail"><div class="empty">Cliquez sur une ligne pour voir le texte, les étiquettes et les spans d'acteurs.</div></div></div>
 </div>
 <script>
-const DATA = __DATA__;
+let DATA = __DATA__;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const badge = (v, cls) => v ? `<span class="b ${esc(cls||v)}">${esc(v)}</span>` : '<span style="color:#b5bbc9">—</span>';
-const docs = [...new Set(DATA.map(r => r.doc))].sort();
-docs.forEach(d => $('fdoc').insertAdjacentHTML('beforeend', `<option>${esc(d)}</option>`));
-$('sub').textContent = `· ${DATA.length} lignes · ${docs.length} documents`;
 let selected = null;
+function init() {
+  const docs = [...new Set(DATA.map(r => r.doc))].sort();
+  $('fdoc').innerHTML = '<option value="">Document : tous</option>';
+  docs.forEach(d => $('fdoc').insertAdjacentHTML('beforeend', `<option>${esc(d)}</option>`));
+  $('sub').textContent = DATA.length ? `· ${DATA.length} lignes · ${docs.length} documents` : '· aucune donnée chargée';
+  $('loader').style.display = DATA.length ? 'none' : 'block';
+}
+// --- loading local CSV files (index.html ships without data) ---
+function parseCSV(s) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === '"') { if (s[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f.length || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function objs(s) { const r = parseCSV(s), h = r[0]; return r.slice(1).filter(x => x.length === h.length).map(x => Object.fromEntries(h.map((k, i) => [k, x[i]]))); }
+function build(ann, act) {
+  const spans = {}, texts = {};
+  act.forEach(a => { (spans[a.row_id] = spans[a.row_id] || []).push([+a.start, +a.end]); texts[a.row_id] = a.text; });
+  return ann.map(r => ({
+    id: r.row_id, doc: r.doc_id, date: r.doc_date, domain: r.domain, split: r.split,
+    sheet: r.source_sheet, srow: r.source_row, pre: r.pre_context, span: r.span_text, post: r.post_context,
+    text: texts[r.row_id] || [r.pre_context, r.span_text, r.post_context].filter(Boolean).join('\n\n'),
+    e1: r.e1_event, e2: r.e2_event, rel_raw: r.rel_type_raw, rel: r.rel_type_v2,
+    stance_raw: r.stance_raw, stance: r.stance_v2, flags: r.flags, p1: !!r.rel_type_v2,
+    p2: r.in_stance_task === 'True', p3: r.in_actor_task === 'True', held: r.held_illegitimate === 'True',
+    spans: (spans[r.row_id] || []).sort((a, b) => a[0] - b[0] || a[1] - b[1])}));
+}
+$('fgo').addEventListener('click', async () => {
+  const a = $('fann').files[0], b = $('fact').files[0];
+  if (!a || !b) { $('fmsg').textContent = 'Choisissez les deux fichiers.'; return; }
+  try { DATA = build(objs(await a.text()), objs(await b.text())); $('fmsg').textContent = ''; init(); render(); }
+  catch (e) { $('fmsg').textContent = 'Fichiers illisibles : ' + e.message; }
+});
 
 function filtered() {
   const q = $('q').value.trim().toLowerCase(), doc = $('fdoc').value, sp = $('fsplit').value,
@@ -149,8 +195,9 @@ function show(id) {
 }
 $('tb').addEventListener('click', e => { const tr = e.target.closest('tr.row'); if (tr) show(tr.dataset.id); });
 ['q','fdoc','fsplit','fphase','frel','fstance','fflag'].forEach(id => $(id).addEventListener('input', render));
-render();
+init(); render();
 </script></body></html>"""
 (ROOT / "viewer").mkdir(exist_ok=True)
-(ROOT / "viewer/index.html").write_text(html.replace("__DATA__", data), encoding="utf-8")
-print("wrote viewer/index.html", len(rows), "rows")
+(ROOT / "viewer/viewer-local.html").write_text(html.replace("__DATA__", data), encoding="utf-8")
+(ROOT / "viewer/index.html").write_text(html.replace("__DATA__", "[]"), encoding="utf-8")
+print("wrote viewer/viewer-local.html (embedded,", len(rows), "rows) and viewer/index.html (no data)")
